@@ -1,0 +1,1024 @@
+
+
+
+
+الحمد لله
+نجح
+انشاء ادوات لنموذج بلاما سرفر واداة كيوريل
+انشاء ملف نصى
+انشاء ملف بيثون
+تنفيذ ملف بيثون
+بحث فى الويب عن كلمة وفتح الرابط ف المتصفح
+البحث ف سطح المكتب وجلب اسماء الملفات
+
+
+curl_llama-server_calltools
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/home/m/Desktop/llama.cpp-latest/build/bin/llama-server \
+  -m /home/m/Downloads/lmstudio_model/bartowski/openai_gpt-oss-20b-GGUF/openai_gpt-oss-20b-bf16.gguf \
+  --port 1234 \
+  -c 4096
+
+
+
+
+
+
+
+curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "user", "content": "أنشئ لي ملفاً باسم my_story.txt واكتب بداخله: هذه قصة قصيرة كتبها الذكاء الاصطناعي." }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "write_file",
+          "description": "دالة لإنشاء ملف نصي على القرص الصلب وكتابة محتوى بداخله",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "filename": { "type": "string", "description": "اسم الملف" },
+              "content": { "type": "string", "description": "النص الذي سيتم حفظه داخل الملف" }
+            },
+            "required": ["filename", "content"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+# التحقق هل قرر النموذج استدعاء الأداة
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    filename = args["filename"]
+    content = args["content"]
+    
+    # هنا يتم تنفيذ الأداة فعلياً على القرص
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(content)
+        
+    print(f"✅ تم تنفيذ الأداة بنجاح وإنشاء الملف: {filename}")
+else:
+    print("النموذج لم يستدعِ الأداة وأجاب نصياً:")
+    print(choice.get("content"))
+'
+
+
+
+
+
+
+
+
+curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { 
+        "role": "user", 
+        "content": "أنشئ لي ملفاً باسم app_gui.py واكتب بداخله كود بايثون نظيف وكامل لعرض نافذة واجهة رسومية تفاعلية باستخدام مكتبة tkinter، تحتوي على عنوان، وحقل إدخال، وزر عند الضغط عليه يعرض رسالة ترحيبية." 
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "write_file",
+          "description": "دالة لحفظ كود أو نصوص داخل ملف على الجهاز",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "filename": { "type": "string", "description": "اسم الملف مثل app_gui.py" },
+              "content": { "type": "string", "description": "كود البايثون الكامل" }
+            },
+            "required": ["filename", "content"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    filename = args["filename"]
+    content = args["content"]
+    
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(content)
+        
+    print(f"✅ قام النموذج ببرمجة الواجهة وحفظ الكود بنجاح في: {filename}")
+else:
+    print(choice.get("content"))
+'
+
+
+
+
+
+
+
+curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { 
+        "role": "user", 
+        "content": "شغّل لي ملف البايثون app_gui.py الآن واعرض الواجهة على الشاشة." 
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "run_python_file",
+          "description": "أداة لتشغيل أي ملف بايثون على نظام لينكس وعرض واجهته أو مخرجاته",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "filename": { "type": "string", "description": "اسم ملف بايثون المراد تشغيله مثل app_gui.py" }
+            },
+            "required": ["filename"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json, subprocess
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    filename = args["filename"]
+    
+    print(f"🤖 النموذج استدعى أداة التشغيل للملف: {filename}")
+    print("🚀 جاري إطلاق الواجهة الرسومية...")
+    
+    # تشغيل ملف البايثون وفتح النافذة الرسومية مباشرة
+    subprocess.Popen(["python3", filename])
+    print("✅ تم فتح نافذة البرنامج بنجاح!")
+else:
+    print(choice.get("content"))
+'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { 
+        "role": "user", 
+        "content": "ابحث عن مستودع (repo) رسمي شهير ومهم للذكاء الاصطناعي على GitHub (أو صورة فضاء مذهلة)، واستخدم أداتك لفتح الرابط في متصفح جهازي مباشرة." 
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "open_in_browser",
+          "description": "أداة لفتح أي رابط ويب (مستودع GitHub أو بحث صور أو موقع) داخل متصفح الإنترنت على جهاز المستخدم",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string", "description": "الرابط الكامل المطلوب فتحه" },
+              "description": { "type": "string", "description": "وصف للشيء الذي قرر فتحه" }
+            },
+            "required": ["url"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json, subprocess
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    url = args["url"]
+    desc = args.get("description", "رابط مختار")
+    
+    print(f"🤖 النموذج قرر فتح: {desc}")
+    print(f"🔗 الرابط: {url}")
+    print("🚀 جاري فتح المتصفح...")
+    
+    # أمر لينكس لفتح الرابط بالمتصفح الافتراضي
+    subprocess.Popen(["xdg-open", url])
+    print("✅ تم فتح الصفحة في متصفحك بنجاح!")
+else:
+    print(choice.get("content"))
+'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { 
+        "role": "user", 
+        "content": "افحص مجلد سطح المكتب (Desktop) واجلب لي قائمة بأسماء الملفات والمجلدات الموجودة بداخله." 
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "list_directory_files",
+          "description": "قراءة مسار معين في نظام لينكس وجلب قائمة بكل الملفات والمجلدات الموجودة بداخله",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "folder_path": { 
+                "type": "string", 
+                "description": "المسار المراد فحصه مثل ~/Desktop أو ~/Downloads" 
+              }
+            },
+            "required": ["folder_path"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json, os, urllib.request
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    raw_path = args.get("folder_path", "~/Desktop")
+    
+    # حل المسار تلقائياً (سواء كان إنجليزي Desktop أو عربي سطح المكتب)
+    target_dir = os.path.expanduser(raw_path)
+    if not os.path.exists(target_dir):
+        alt = os.path.expanduser("~/سطح المكتب")
+        if os.path.exists(alt): target_dir = alt
+        else: target_dir = os.path.expanduser("~") # العودة للمجلد الرئيسي إذا لم يوجد سطح مكتب
+
+    print(f"🤖 النموذج استدعى أداة قراءة المجلدات للمسار: {target_dir}")
+    print("🔍 جاري فحص الملفات عبر نظام لينكس...\n")
+
+    try:
+        files = os.listdir(target_dir)
+        print("📁 قائمة الملفات التي تم العثور عليها فعلياً:")
+        for item in files:
+            icon = "📂" if os.path.isdir(os.path.join(target_dir, item)) else "📄"
+            print(f"   {icon} {item}")
+
+        # إرجاع النتيجة للنموذج ليعلق عليها ويلخصها لك
+        print("\n⏳ جاري إرسال القائمة للنموذج ليحللها لك...")
+        prompt_back = {
+            "messages": [
+                {"role": "user", "content": f"هذه هي قائمة الملفات الموجودة في المجلد: {files}. لخص لي محتويات المجلد باختصار."}
+            ]
+        }
+        req = urllib.request.Request(
+            "http://localhost:1234/v1/chat/completions",
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(prompt_back).encode("utf-8")
+        )
+        final_answer = json.loads(urllib.request.urlopen(req).read())
+        print("\n💬 تعليق وتحليل النموذج:")
+        print(final_answer["choices"][0]["message"]["content"])
+
+    except Exception as e:
+        print(f"❌ حدث خطأ أثناء القراءة: {e}")
+else:
+    print(choice.get("content"))
+'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+m@m-HP-Z440-Workstation:~$ curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "system", "content": "أنت مساعد ذكي ومفيد." },
+      { "role": "user", "content": "ما هي عاصمة فرنسا؟" }
+    ],
+    "temperature": 0.7
+  }'
+{"error":{"message":"Loading model","type":"unavailable_error","code":503}}m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "system", "content": "أنت مساعد ذكي ومفيد." },
+      { "role": "user", "content": "ما هي عاصمة فرنسا؟" }
+    ],
+    "temperature": 0.7
+  }'
+{"error":{"message":"Loading model","type":"unavailable_error","code":503}}m@m-HP-Z440-Workstation:~$ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+curl_llama-server_calltools
+
+
+
+
+
+
+
+
+/home/m/Desktop/llama.cpp-latest/build/bin/llama-server \
+  -m /home/m/Downloads/lmstudio_model/bartowski/openai_gpt-oss-20b-GGUF/openai_gpt-oss-20b-bf16.gguf \
+  --port 1234 \
+  -c 4096
+
+
+
+
+
+
+
+
+
+
+
+
+
+m@m-HP-Z440-Workstation:~$ curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "system", "content": "أنت مساعد ذكي ومفيد." },
+      { "role": "user", "content": "ما هي عاصمة فرنسا؟" }
+    ],
+    "temperature": 0.7
+  }'
+{"error":{"message":"Loading model","type":"unavailable_error","code":503}}m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "system", "content": "أنت مساعد ذكي ومفيد." },
+      { "role": "user", "content": "ما هي عاصمة فرنسا؟" }
+    ],
+    "temperature": 0.7
+  }'
+{"error":{"message":"Loadinm@m-HP-Z440-Workstation:~$ curl http://localhost:1234/v1/chat/completions \m@m-HP-Z440-Workstation:~$ curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "system", "content": "أنت مساعد ذكي ومفيد." },
+      { "role": "user", "content": "ما هي عاصمة فرنسا؟" }
+    ],
+    "temperature": 0.7
+  }'
+{"error":{"message":"Loading model","type":"unavailable_error","code":503}}m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "system", "content": "أنت مساعد ذكي ومفيد." },
+      { "role": "user", "content": "ما هي عاصمة فرنسا؟" }
+    ],
+    "temperature": 0.7
+  }'
+{"error":{"message":"Loading model","type":"unavailable_error","code":503}}m@m-HP-Z440-Workstation:~$ 
+
+
+
+
+
+m@m-HP-Z440-Workstation:~$: command not found
+{error:message:Loading model}m@m-HP-Z440-Workstation:~$: command not found
+m@m-HP-Z440-Workstation:~$: command not found
+{error:message:Loading model}m@m-HP-Z440-Workstation:~$: command not found
+m@m-HP-Z440-Workstation:~$  curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "system", "content": "أنت مساعد ذكي ومفيد." },
+      { "role": "user", "content": "ما هي عاصمة فرنسا؟" }
+    ],
+    "temperature": 0.7
+  }'
+{"choices":[{"finish_reason":"stop","index":0,"message":{"role":"assistant","content":"عاصمة فرنسا هي باريس.","reasoning_content":"We need to answer in Arabic: \"ما هي عاصمة فرنسا؟\" The answer: \"باريس\". Provide concise."}}],"created":1793060385,"model":"/home/m/Downloads/lmstudio_model/bartowski/openai_gpt-oss-20b-GGUF/openai_gpt-oss-20b-bf16.gguf","system_fingerprint":"b11606-1b70350c9","object":"chat.completion","usage":{"completion_tokens":41,"prompt_tokens":88,"total_tokens":129,"prompt_tokens_details":{"cached_tokens":0}},"id":"chatcmpl-aOunsmU5x301RZ4JGt9wqSb8CbhQgYEo","timings":{"cache_n":0,"prompt_n":88,"prompt_ms":586.282,"prompt_per_token_ms":6.662295454545455,"prompt_per_second":150.0984168028355,"predicted_n":41,"predicted_ms":449.025,"predicted_per_token_ms":11.225624999999999,"predicted_per_second":89.08189967151048}}m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "user", "content": "أنشئ لي ملفاً باسم my_story.txt واكتب بداخله: هذه قصة قصيرة كتبها الذكاء الاصطناعي." }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "write_file",
+          "description": "دالة لإنشاء ملف نصي على القرص الصلب وكتابة محتوى بداخله",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "filename": { "type": "string", "description": "اسم الملف" },
+              "content": { "type": "string", "description": "النص الذي سيتم حفظه داخل الملف" }
+            },
+            "required": ["filename", "content"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+# التحقق هل قرر النموذج استدعاء الأداة
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    filename = args["filename"]
+    content = args["content"]
+    
+    # هنا يتم تنفيذ الأداة فعلياً على القرص
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(content)
+        
+    print(f"✅ تم تنفيذ الأداة بنجاح وإنشاء الملف: {filename}")
+else:
+    print("النموذج لم يستدعِ الأداة وأجاب نصياً:")
+    print(choice.get("content"))
+'
+✅ تم تنفيذ الأداة بنجاح وإنشاء الملف: my_story.txt
+m@m-HP-Z440-Workstation:~$ cat my_story.txt
+هذه قصة قصيرة كتبها الذكاء الاصطناعي.m@m-HP-Z440-Workstation:~$ readlink -f my_story.txt
+/home/m/my_story.txt
+m@m-HP-Z440-Workstation:~$ xdg-open my_story.txt
+m@m-HP-Z440-Workstation:~$ xdg-open my_story.txt
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { 
+        "role": "user", 
+        "content": "أنشئ لي ملفاً باسم app_gui.py واكتب بداخله كود بايثون نظيف وكامل لعرض نافذة واجهة رسومية تفاعلية باستخدام مكتبة tkinter، تحتوي على عنوان، وحقل إدخال، وزر عند الضغط عليه يعرض رسالة ترحيبية." 
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "write_file",
+          "description": "دالة لحفظ كود أو نصوص داخل ملف على الجهاز",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "filename": { "type": "string", "description": "اسم الملف مثل app_gui.py" },
+              "content": { "type": "string", "description": "كود البايثون الكامل" }
+            },
+            "required": ["filename", "content"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    filename = args["filename"]
+    content = args["content"]
+    
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(content)
+        
+    print(f"✅ قام النموذج ببرمجة الواجهة وحفظ الكود بنجاح في: {filename}")
+else:
+    print(choice.get("content"))
+'
+✅ قام النموذج ببرمجة الواجهة وحفظ الكود بنجاح في: app_gui.py
+m@m-HP-Z440-Workstation:~$ python3 app_gui.py
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { 
+        "role": "user", 
+        "content": "شغّل لي ملف البايثون app_gui.py الآن واعرض الواجهة على الشاشة." 
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "run_python_file",
+          "description": "أداة لتشغيل أي ملف بايثون على نظام لينكس وعرض واجهته أو مخرجاته",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "filename": { "type": "string", "description": "اسم ملف بايثون المراد تشغيله مثل app_gui.py" }
+            },
+            "required": ["filename"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json, subprocess
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    filename = args["filename"]
+    
+    print(f"🤖 النموذج استدعى أداة التشغيل للملف: {filename}")
+    print("🚀 جاري إطلاق الواجهة الرسومية...")
+    
+    # تشغيل ملف البايثون وفتح النافذة الرسومية مباشرة
+    subprocess.Popen(["python3", filename])
+    print("✅ تم فتح نافذة البرنامج بنجاح!")
+else:
+    print(choice.get("content"))
+'
+🤖 النموذج استدعى أداة التشغيل للملف: app_gui.py
+🚀 جاري إطلاق الواجهة الرسومية...
+✅ تم فتح نافذة البرنامج بنجاح!
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { 
+        "role": "user", 
+        "content": "ابحث عن مستودع (repo) رسمي شهير ومهم للذكاء الاصطناعي على GitHub (أو صورة فضاء مذهلة)، واستخدم أداتك لفتح الرابط في متصفح جهازي مباشرة." 
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "open_in_browser",
+          "description": "أداة لفتح أي رابط ويب (مستودع GitHub أو بحث صور أو موقع) داخل متصفح الإنترنت على جهاز المستخدم",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string", "description": "الرابط الكامل المطلوب فتحه" },
+              "description": { "type": "string", "description": "وصف للشيء الذي قرر فتحه" }
+            },
+            "required": ["url"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json, subprocess
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    url = args["url"]
+    desc = args.get("description", "رابط مختار")
+    
+    print(f"🤖 النموذج قرر فتح: {desc}")
+    print(f"🔗 الرابط: {url}")
+    print("🚀 جاري فتح المتصفح...")
+    
+    # أمر لينكس لفتح الرابط بالمتصفح الافتراضي
+    subprocess.Popen(["xdg-open", url])
+    print("✅ تم فتح الصفحة في متصفحك بنجاح!")
+else:
+    print(choice.get("content"))
+'
+🤖 النموذج قرر فتح: مستودع Transformers من Hugging Face، واحد من أكثر مستودعات الذكاء الاصطناعي شهرة وشهرة على GitHub
+🔗 الرابط: https://github.com/huggingface/transformers
+🚀 جاري فتح المتصفح...
+✅ تم فتح الصفحة في متصفحك بنجاح!
+m@m-HP-Z440-Workstation:~$ Opening in existing browser session.
+[1:1:0100/000000.197957:ERROR:content/zygote/zygote_main_linux.cc:197] Failed sending zygote boot message: Broken pipe (32)
+[232736:232736:0100/000000.203355:ERROR:content/zygote/zygote_linux.cc:662] write: Broken pipe (32)
+
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ 
+m@m-HP-Z440-Workstation:~$ curl -s http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { 
+        "role": "user", 
+        "content": "افحص مجلد سطح المكتب (Desktop) واجلب لي قائمة بأسماء الملفات والمجلدات الموجودة بداخله." 
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "list_directory_files",
+          "description": "قراءة مسار معين في نظام لينكس وجلب قائمة بكل الملفات والمجلدات الموجودة بداخله",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "folder_path": { 
+                "type": "string", 
+                "description": "المسار المراد فحصه مثل ~/Desktop أو ~/Downloads" 
+              }
+            },
+            "required": ["folder_path"]
+          }
+        }
+      }
+    ]
+  }' | python3 -c '
+import sys, json, os, urllib.request
+
+res = json.load(sys.stdin)
+choice = res["choices"][0]["message"]
+
+if "tool_calls" in choice and choice["tool_calls"]:
+    args = json.loads(choice["tool_calls"][0]["function"]["arguments"])
+    raw_path = args.get("folder_path", "~/Desktop")
+    
+    # حل المسار تلقائياً (سواء كان إنجليزي Desktop أو عربي سطح المكتب)
+    target_dir = os.path.expanduser(raw_path)
+    if not os.path.exists(target_dir):
+        alt = os.path.expanduser("~/سطح المكتب")
+        if os.path.exists(alt): target_dir = alt
+        else: target_dir = os.path.expanduser("~") # العودة للمجلد الرئيسي إذا لم يوجد سطح مكتب
+
+    print(f"🤖 النموذج استدعى أداة قراءة المجلدات للمسار: {target_dir}")
+    print("🔍 جاري فحص الملفات عبر نظام لينكس...\n")
+
+    try:
+        files = os.listdir(target_dir)
+        print("📁 قائمة الملفات التي تم العثور عليها فعلياً:")
+        for item in files:
+            icon = "📂" if os.path.isdir(os.path.join(target_dir, item)) else "📄"
+            print(f"   {icon} {item}")
+
+        # إرجاع النتيجة للنموذج ليعلق عليها ويلخصها لك
+        print("\n⏳ جاري إرسال القائمة للنموذج ليحللها لك...")
+        prompt_back = {
+            "messages": [
+                {"role": "user", "content": f"هذه هي قائمة الملفات الموجودة في المجلد: {files}. لخص لي محتويات المجلد باختصار."}
+            ]
+        }
+        req = urllib.request.Request(
+            "http://localhost:1234/v1/chat/completions",
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(prompt_back).encode("utf-8")
+        )
+        final_answer = json.loads(urllib.request.urlopen(req).read())
+        print("\n💬 تعليق وتحليل النموذج:")
+        print(final_answer["choices"][0]["message"]["content"])
+
+    except Exception as e:
+        print(f"❌ حدث خطأ أثناء القراءة: {e}")
+else:
+    print(choice.get("content"))
+'
+🤖 النموذج استدعى أداة قراءة المجلدات للمسار: /home/m/Desktop
+🔍 جاري فحص الملفات عبر نظام لينكس...
+
+📁 قائمة الملفات التي تم العثور عليها فعلياً:
+   📂 GSQ-RCO-GGUF
+   📂 eb213dccb3571f863da82e99418f81e8-2c64bb691316d32915b188e495754ef34931ae71
+   📂 club
+   📄 smolagents.txt
+   📂 1
+   📂 FrogNano
+   📂 11111
+   📂 vcode
+   📄 run_chrom_WebGPU.txt
+   📂 suc-create-open-read-translate-with-llm-MD
+   📄 gsq.txt
+   📂 vvvv
+   📄 chrome-Arena_Direct_Chat__Access_Multiple_Frontier_AI_Models_in_One_Platform_(Pox).desktop
+   📄 2222.pdf
+   📂 ddddd
+   📄 Thinking Through Shakespeare - David Womersley.pdf
+   📂 New Foldera
+   📄 https huggingface co Qwen.txt
+   📄 MXFP4_MOE.gguf
+   📂 pg77145-images
+   📂 rrrr
+   📂 qwenmtp
+   📄 chrome-Workspace___PDF2Go_(Pox).desktop
+   📄 simplenote-2026-10-20T19.22.22.62.zip
+   📄 1_1-5.pdf
+   📄 a
+   📄 22.pdf
+   📄 sudo mkdir p media external.txt
+   📄 home m Desktop llama cpp.txt
+   📄 ternary quantization.txt
+   📂 atomchat
+   📄 calibration_datav3.txt
+   📂 enty
+   📄 pingpong.html
+   📄 chrome-Z.ai_-_Advanced_AI_Chatbot_&_Agent_powered_by_GLM-5.3-Flash_(Pox).desktop
+   📄 eb213dccb3571f863da82e99418f81e8-2c64bb691316d32915b188e495754ef34931ae71.zip
+   📂 llamacpp111
+   📄 vlllm.png
+   📄 1.pdf
+   📄 download.txt
+   📄 chrome-Your_Work___Kaggle_(Pox).desktop
+   📂 qwen-image-2.1-gguf
+   📄 MXFP4_MOE_ollama.gguf
+   📄 1_1-5.md
+   📂 New Folder
+   📄 2222.txt
+   📄 calcol.html
+   📂 ollamatk
+   📄 vllmrun.png
+   📄 حفظ_شات.txt
+   📂 11
+   📄 chrome-fjhkaiikdofjpchcdgfalkfncfhbnlbi-Profile_2.desktop
+   📂 suc_rag
+   📂 suc_chess
+   📂 0
+   📂 ollama_marketdon
+   📄 ءءءءء.html
+   📄 [١٠_١٠, ٤٣٣ م.txt
+   📄 1.py
+   📄 text.png
+   📂 ء
+   📂 pdf
+   📂 suc
+   📄 Web search chatgpt system.txt
+   📂 QoderAgenticCoding
+   📂 spacecoderea
+   📄 chrome-Qwen_(Pox).desktop
+   📂 z
+   📄 The Project Gutenberg eBook of The Puzzle King, by John Scott_.pdf
+   📂 nvvvvv
+   📂 vv
+   📄 xxx.txt
+   📂 llama.cpp-latest
+   📂 suc_rea
+   📂 llamacpp
+   📄 1.png
+   📄 erorre.txt
+   📄 كود نجح فى نسخ الشات كله.txt
+
+⏳ جاري إرسال القائمة للنموذج ليحللها لك...
+^CTraceback (most recent call last):
+  File "<string>", line 40, in <module>
+    final_answer = json.loads(urllib.request.urlopen(req).read())
+                              ~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/usr/lib/python3.14/urllib/request.py", line 187, in urlopen
+    return opener.open(url, data, timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/urllib/request.py", line 487, in open
+    response = self._open(req, data)
+  File "/usr/lib/python3.14/urllib/request.py", line 504, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+                              '_open', req)
+  File "/usr/lib/python3.14/urllib/request.py", line 464, in _call_chain
+    result = func(*args)
+  File "/usr/lib/python3.14/urllib/request.py", line 1350, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/urllib/request.py", line 1325, in do_open
+    r = h.getresponse()
+  File "/usr/lib/python3.14/http/client.py", line 1459, in getresponse
+    response.begin()
+    ~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/http/client.py", line 336, in begin
+    version, status, reason = self._read_status()
+                              ~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/http/client.py", line 297, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/socket.py", line 725, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+KeyboardInterrupt
+
+m@m-HP-Z440-Workstation:~$ ^C
+m@m-HP-Z440-Workstation:~$ 
+
+
+
+
+
+
